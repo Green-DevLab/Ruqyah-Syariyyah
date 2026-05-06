@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pustaka Ruqyah - E-Book & Forum</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        :root {
+            --google-blue: #4285f4;
+            --google-bg: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--google-bg);
+            color: #202124;
+            overscroll-behavior-y: contain;
+        }
+
+        /* Google E-Book Style Cards */
+        .ebook-card {
+            background: white;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #dadce0;
+        }
+
+        .ebook-card:active {
+            transform: scale(0.97);
+            background: #f1f3f4;
+        }
+
+        .book-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+
+        /* Bottom Nav for Mobile */
+        .bottom-nav {
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .nav-item.active {
+            color: var(--google-blue);
+        }
+
+        .nav-item.active i {
+            transform: translateY(-2px);
+        }
+
+        /* Custom Modal for Installation */
+        #install-modal {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        /* PDF Viewer Tweaks */
+        #pdf-render-container::-webkit-scrollbar { width: 0; }
+        
+        .shimmer {
+            background: linear-gradient(90deg, #f1f3f4 25%, #e8eaed 50%, #f1f3f4 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .noselect { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+        
+        /* Skeleton */
+        .skeleton-rect { height: 180px; width: 100%; border-radius: 8px; }
+    </style>
+</head>
+<body class="noselect">
+
+    <!-- ================= MODAL INSTALASI (Native Look) ================= -->
+    <div id="install-overlay" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div id="install-modal" class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg shadow-blue-200">
+                    <i class="fa-solid fa-book-quran"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-slate-800 leading-tight">Pustaka Ruqyah</h3>
+                    <p class="text-xs text-slate-500">Instal aplikasi untuk akses lebih cepat & nyaman.</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <button onclick="hideInstallModal()" class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all">
+                    Pasang Sekarang
+                </button>
+                <button onclick="hideInstallModal()" class="w-full py-3 text-slate-500 font-bold text-sm">
+                    Nanti Saja
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= LOGIN VIEW ================= -->
+    <div id="login-view" class="fixed inset-0 z-[60] bg-white flex flex-col items-center justify-center p-8 text-center">
+        <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6 text-3xl rotate-3">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Selamat Datang</h2>
+        <p class="text-slate-500 text-sm mt-2 mb-10">Gunakan akses anggota untuk masuk ke Pustaka.</p>
+
+        <form id="loginForm" onsubmit="handleLogin(event)" class="w-full max-w-xs space-y-4">
+            <input type="text" id="inputNama" required placeholder="Nama Pengguna"
+                class="w-full px-5 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all">
+            <input type="password" id="inputToken" required placeholder="Token 6 Digit"
+                class="w-full px-5 py-4 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all">
+            
+            <div id="loginError" class="hidden text-red-500 text-xs font-bold py-2">
+                <i class="fa-solid fa-circle-exclamation mr-1"></i> Data tidak cocok.
+            </div>
+
+            <button type="submit" id="btnSubmit" class="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all">
+                Masuk Pustaka
+            </button>
+        </form>
+    </div>
+
+    <!-- ================= MAIN APP VIEW ================= -->
+    <div id="main-view" class="hidden pb-24">
+        <!-- Google Top Bar -->
+        <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100">
+            <div class="max-w-xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs">
+                        <i class="fa-solid fa-book-quran"></i>
+                    </div>
+                    <span class="font-bold text-slate-800 tracking-tight">Pustaka Ruqyah</span>
+                </div>
+                <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search Area -->
+        <div class="max-w-xl mx-auto px-6 py-6">
+            <div class="relative group">
+                <input type="text" id="searchInput" placeholder="Cari di Pustaka..." 
+                    class="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500"></i>
+            </div>
+        </div>
+
+        <!-- Pustaka View -->
+        <main id="view-pdf" class="max-w-xl mx-auto px-6">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Koleksi Terbaru</h2>
+            <div id="catalog-grid" class="grid grid-cols-2 gap-6">
+                <!-- Skeletons -->
+                <div class="space-y-3">
+                    <div class="skeleton-rect shimmer"></div>
+                    <div class="h-3 w-3/4 shimmer rounded"></div>
+                </div>
+                <div class="space-y-3">
+                    <div class="skeleton-rect shimmer"></div>
+                    <div class="h-3 w-3/4 shimmer rounded"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Forum View -->
+        <main id="view-forum" class="hidden max-w-xl mx-auto px-6">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-6">
+                <textarea id="postContent" placeholder="Tulis sesuatu di forum..." class="w-full p-2 bg-transparent text-sm outline-none resize-none min-h-[80px]"></textarea>
+                <div class="flex justify-end pt-3 border-t border-slate-50">
+                    <button onclick="createPost()" id="btnPost" class="bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold active:scale-95 transition-all">Kirim</button>
+                </div>
+            </div>
+            <div id="forum-feed" class="space-y-4"></div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-8 py-3 flex justify-around items-center bottom-nav z-50">
+            <button onclick="switchTab('pdf')" id="nav-pdf" class="nav-item active flex flex-col items-center gap-1">
+                <i class="fa-solid fa-book-open text-xl transition-all"></i>
+                <span class="text-[10px] font-bold">Pustaka</span>
+            </button>
+            <button onclick="switchTab('forum')" id="nav-forum" class="nav-item text-slate-400 flex flex-col items-center gap-1 relative">
+                <i class="fa-solid fa-comments text-xl transition-all"></i>
+                <span class="text-[10px] font-bold">Forum</span>
+                <span id="forum-badge" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- PDF Reader Overlay (Google Books Style) -->
+    <div id="pdf-viewer-overlay" class="hidden fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden">
+        <header class="h-16 flex items-center justify-between px-4 border-b border-slate-100">
+            <button onclick="closePdf()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                <i class="fa-solid fa-chevron-left text-slate-800"></i>
+            </button>
+            <span id="pdf-title-display" class="font-bold text-xs text-slate-800 truncate max-w-[180px]">Judul</span>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md"><span id="page_num">1</span> / <span id="page_count">-</span></span>
+            </div>
+        </header>
+        <div id="pdf-render-container" class="flex-1 overflow-auto bg-slate-50 flex flex-col items-center p-4">
+            <canvas id="pdf-render" class="book-shadow bg-white rounded-sm w-full h-auto max-w-lg"></canvas>
+            <div class="flex gap-10 mt-8 mb-10">
+                <button onclick="onPrevPage()" class="w-12 h-12 bg-white rounded-full border shadow-sm flex items-center justify-center active:bg-slate-100"><i class="fa-solid fa-arrow-left"></i></button>
+                <button onclick="onNextPage()" class="w-12 h-12 bg-white rounded-full border shadow-sm flex items-center justify-center active:bg-slate-100"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { 
+            getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getCountFromServer 
+        } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtSZfcHJUAsASzN_18hV3lSdp-7jynC2A",
+            authDomain: "gdlabs-01.firebaseapp.com",
+            projectId: "gdlabs-01",
+            storageBucket: "gdlabs-01.appspot.com",
+            messagingSenderId: "327968783962",
+            appId: "1:327968783962:web:2f10564d92b5b403e76263"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = 'pustaka-ruqyah-v1';
+
+        const GITHUB_DATA_URL = "https://raw.githubusercontent.com/ourobyte/drive-ruqyah/main/data.json";
+        const ASSETS_API_URL = "https://api.github.com/repos/ourobyte/drive-ruqyah/contents/assets";
+
+        let pdfData = [];
+        let validUsers = [];
+        let currentUser = null;
+        let activeCommentListeners = {};
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await signInAnonymously(auth);
+            fetchUsers();
+            checkSession();
+            checkInstallPrompt();
+        });
+
+        // ================= AUTH LOGIC =================
+        async function fetchUsers() {
+            try {
+                const r = await fetch(GITHUB_DATA_URL, { cache: "no-store" });
+                validUsers = await r.json();
+            } catch (e) { console.error("User list error"); }
+        }
+
+        window.handleLogin = (e) => {
+            e.preventDefault();
+            const n = document.getElementById('inputNama').value.trim();
+            const t = document.getElementById('inputToken').value.trim();
+            const btn = document.getElementById('btnSubmit');
+            const err = document.getElementById('loginError');
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            const user = validUsers.find(u => u.nama.toLowerCase() === n.toLowerCase() && u.token === t);
+
+            if (user) {
+                currentUser = user;
+                sessionStorage.setItem('ruqyah_session', JSON.stringify(user));
+                initDashboard();
+            } else {
+                err.classList.remove('hidden');
+                btn.innerHTML = 'Masuk Pustaka';
+            }
+        };
+
+        function checkSession() {
+            const s = sessionStorage.getItem('ruqyah_session');
+            if (s) { currentUser = JSON.parse(s); initDashboard(); }
+        }
+
+        function initDashboard() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('main-view').classList.remove('hidden');
+            loadPustaka();
+            loadForum();
+        }
+
+        window.logout = () => { sessionStorage.clear(); location.reload(); };
+
+        // ================= PUSTAKA LOGIC =================
+        async function loadPustaka() {
+            try {
+                const res = await fetch(ASSETS_API_URL);
+                const items = await res.json();
+                pdfData = items.filter(f => f.name.endsWith('.pdf')).map((f, i) => ({
+                    id: i, title: f.name.replace('.pdf','').replace(/-/g,' '), url: f.download_url
+                }));
+                renderCatalog();
+            } catch (e) {}
+        }
+
+        function renderCatalog(search = "") {
+            const grid = document.getElementById('catalog-grid');
+            const filtered = pdfData.filter(p => p.title.toLowerCase().includes(search.toLowerCase()));
+            grid.innerHTML = filtered.map(item => `
+                <div class="ebook-card p-2 cursor-pointer shadow-sm group" onclick="openPdf('${item.url}', '${item.title}')">
+                    <div class="aspect-[3/4.5] bg-slate-100 rounded-lg shimmer mb-3 overflow-hidden book-shadow" id="thumb-${item.id}"></div>
+                    <h3 class="text-[11px] font-bold text-slate-800 line-clamp-2 px-1 group-active:text-blue-600">${item.title}</h3>
+                </div>
+            `).join('');
+            filtered.forEach(item => generateThumb(item.url, item.id));
+        }
+
+        async function generateThumb(url, id) {
+            try {
+                const pdf = await pdfjsLib.getDocument(url).promise;
+                const page = await pdf.getPage(1);
+                const vp = page.getViewport({ scale: 0.3 });
+                const canvas = document.createElement('canvas');
+                canvas.height = vp.height; canvas.width = vp.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                const container = document.getElementById(`thumb-${id}`);
+                if (container) {
+                    container.innerHTML = `<img src="${canvas.toDataURL()}" class="w-full h-full object-cover">`;
+                    container.classList.remove('shimmer');
+                }
+            } catch (e) {}
+        }
+
+        // ================= FORUM LOGIC =================
+        function loadForum() {
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), orderBy('createdAt', 'desc'));
+            onSnapshot(q, (snap) => {
+                const feed = document.getElementById('forum-feed');
+                feed.innerHTML = "";
+                snap.forEach(d => {
+                    const post = { id: d.id, ...d.data() };
+                    const el = document.createElement('div');
+                    el.className = "bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3";
+                    el.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[10px] text-slate-500">${post.nama.charAt(0)}</div>
+                            <div class="flex-1">
+                                <p class="text-xs font-bold text-slate-800">${post.nama}</p>
+                                <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">${formatDate(post.createdAt)}</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">${post.content}</p>
+                        <div class="pt-3 border-t border-slate-50">
+                            <button onclick="toggleComments('${post.id}')" class="text-[11px] font-bold text-slate-400 hover:text-blue-600">
+                                <i class="fa-regular fa-comment mr-1"></i> <span id="cnt-${post.id}">0</span> Komentar
+                            </button>
+                        </div>
+                        <div id="box-${post.id}" class="hidden space-y-3 pt-3">
+                            <div id="list-${post.id}" class="space-y-3"></div>
+                            <div class="flex gap-2">
+                                <input id="in-${post.id}" type="text" placeholder="Balas..." class="flex-1 bg-slate-50 rounded-xl px-4 py-2 text-xs outline-none">
+                                <button onclick="sendComment('${post.id}')" class="text-blue-600 text-xs font-bold px-2">Kirim</button>
+                            </div>
+                        </div>
+                    `;
+                    feed.appendChild(el);
+                    updateCounter(post.id);
+                });
+            });
+        }
+
+        window.createPost = async () => {
+            const el = document.getElementById('postContent');
+            if (!el.value.trim()) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
+                nama: currentUser.nama, content: el.value.trim(), createdAt: serverTimestamp()
+            });
+            el.value = "";
+        };
+
+        window.toggleComments = (id) => {
+            const box = document.getElementById(`box-${id}`);
+            if (box.classList.toggle('hidden')) {
+                if (activeCommentListeners[id]) activeCommentListeners[id]();
+            } else {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'posts', id, 'comments'), orderBy('createdAt', 'asc'));
+                activeCommentListeners[id] = onSnapshot(q, (snap) => {
+                    const list = document.getElementById(`list-${id}`);
+                    list.innerHTML = "";
+                    snap.forEach(d => {
+                        const c = d.data();
+                        list.innerHTML += `
+                            <div class="bg-slate-50 p-2.5 rounded-xl text-xs">
+                                <span class="font-bold text-slate-800">${c.nama}:</span> ${c.content}
+                            </div>
+                        `;
+                    });
+                    updateCounter(id);
+                });
+            }
+        };
+
+        window.sendComment = async (id) => {
+            const el = document.getElementById(`in-${id}`);
+            if (!el.value.trim()) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts', id, 'comments'), {
+                nama: currentUser.nama, content: el.value.trim(), createdAt: serverTimestamp()
+            });
+            el.value = "";
+        };
+
+        async function updateCounter(id) {
+            const snap = await getCountFromServer(collection(db, 'artifacts', appId, 'public', 'data', 'posts', id, 'comments'));
+            const el = document.getElementById(`cnt-${id}`);
+            if (el) el.innerText = snap.data().count;
+        }
+
+        // ================= UI HELPERS =================
+        window.switchTab = (tab) => {
+            document.getElementById('view-pdf').classList.toggle('hidden', tab !== 'pdf');
+            document.getElementById('view-forum').classList.toggle('hidden', tab !== 'forum');
+            document.getElementById('nav-pdf').className = `nav-item flex flex-col items-center gap-1 ${tab==='pdf'?'active text-blue-600':'text-slate-400'}`;
+            document.getElementById('nav-forum').className = `nav-item flex flex-col items-center gap-1 ${tab==='forum'?'active text-blue-600':'text-slate-400'}`;
+        };
+
+        function formatDate(ts) {
+            if (!ts) return "Baru saja";
+            const d = ts.toDate();
+            return d.toLocaleDateString('id-ID', { day:'numeric', month:'short' }) + ' ' + d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit'});
+        }
+
+        // PDF Reader
+        let docPdf = null, curPage = 1, vCanv = document.getElementById('pdf-render'), vCtx = vCanv.getContext('2d');
+        window.openPdf = async (url, title) => {
+            document.getElementById('pdf-viewer-overlay').classList.remove('hidden');
+            document.getElementById('pdf-title-display').innerText = title;
+            docPdf = await pdfjsLib.getDocument(url).promise;
+            document.getElementById('page_count').innerText = docPdf.numPages;
+            showPage(1);
+        };
+        window.closePdf = () => document.getElementById('pdf-viewer-overlay').classList.add('hidden');
+        function showPage(n) {
+            curPage = n;
+            docPdf.getPage(n).then(p => {
+                const vp = p.getViewport({ scale: 1.5 });
+                vCanv.height = vp.height; vCanv.width = vp.width;
+                p.render({ canvasContext: vCtx, viewport: vp });
+            });
+            document.getElementById('page_num').innerText = n;
+        }
+        window.onPrevPage = () => { if (curPage > 1) showPage(curPage - 1); };
+        window.onNextPage = () => { if (curPage < docPdf.numPages) showPage(curPage + 1); };
+
+        // Search
+        document.getElementById('searchInput').addEventListener('input', (e) => renderCatalog(e.target.value));
+
+        // Install Prompt Logic
+        function checkInstallPrompt() {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+            if (isMobile && !isInstalled) {
+                setTimeout(() => {
+                    document.getElementById('install-overlay').classList.remove('hidden');
+                }, 5000);
+            }
+        }
+        window.hideInstallModal = () => {
+            document.getElementById('install-overlay').classList.add('hidden');
+        };
+
+    </script>
+</body>
+</html>
